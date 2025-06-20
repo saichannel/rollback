@@ -70,7 +70,7 @@ jobs:
 
       - name: Deploy to Dev
         run: |
-          mvn deploy -DmuleDeploy -DskipMunitTests \
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
@@ -123,7 +123,7 @@ jobs:
           echo "Deploying version ${{ needs.build.outputs.version }} to UAT"
           # Uncomment below to simulate failure
           # exit 1
-          mvn deploy -DmuleDeploy -DskipMunitTests \
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
@@ -137,7 +137,7 @@ jobs:
         if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
         run: |
           echo "Rolling back to UAT version $PREVIOUS_VERSION"
-          mvn deploy -DmuleDeploy -DskipMunitTests \
+         mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
@@ -189,7 +189,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Deploying version ${{ needs.build.outputs.version }} to Prod"
-          mvn deploy -DmuleDeploy -DskipMunitTests \
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
@@ -203,7 +203,7 @@ jobs:
         if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
         run: |
           echo "Rolling back to Prod version $PREVIOUS_VERSION"
-          mvn deploy -DmuleDeploy -DskipMunitTests \
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
