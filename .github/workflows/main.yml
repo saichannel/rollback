@@ -49,6 +49,12 @@ jobs:
           name: mule-app
           path: packaged
 
+      - name: Publish to Exchange
+        run: |
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests \
+          -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+          -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA
+
   deploy-dev:
     needs: build
     runs-on: ubuntu-latest
