@@ -91,6 +91,7 @@ jobs:
   deploy-uat:
     needs: deploy-dev
     runs-on: ubuntu-latest
+    environment: uat
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -127,17 +128,17 @@ jobs:
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
-            -Denv=UAT \
-            -Dappname=rollback-api-uat \
-            -Danypoint.platform.client_id=b5b72434253f480c8405d9cb8d853fed  \
-            -Danypoint.platform.client_secret=d7d4Ff82Be8f49949661Ffd3ED535D46 \
+            -Denv=Dev \
+            -Dappname=rollback-api \
+            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
+            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
             -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
 
       - name: Rollback to Previous UAT Version
         if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
         run: |
           echo "Rolling back to UAT version $PREVIOUS_VERSION"
-         mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
+          mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
@@ -193,10 +194,10 @@ jobs:
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
-            -Denv=PROD \
-            -Dappname=rollback-api-prod \
-            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
-            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
+            -Denv=UAT \
+            -Dappname=rollback-api-uat \
+            -Danypoint.platform.client_id=b5b72434253f480c8405d9cb8d853fed  \
+            -Danypoint.platform.client_secret=d7d4Ff82Be8f49949661Ffd3ED535D46 \
             -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
 
       - name: Rollback to Previous Prod Version
@@ -207,10 +208,10 @@ jobs:
             -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
-            -Denv=PROD \
-            -Dappname=rollback-api-prod \
-            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
-            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
+            -Denv=UAT \
+            -Dappname=rollback-api-uat \
+            -Danypoint.platform.client_id=b5b72434253f480c8405d9cb8d853fed  \
+            -Danypoint.platform.client_secret=d7d4Ff82Be8f49949661Ffd3ED535D46 \
             -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
 
       - name: Store Successful Prod Artifact
