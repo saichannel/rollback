@@ -2,9 +2,219 @@ name: Deploy MuleSoft Application Demo
 on:
   push:
     branches:
-      - main
+      - mai
  
 jobs:
-  call-workflow:
-    uses: Indrajith045/pipeline/.github/workflows/pipeline.yml@main
-    secrets: inherit
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache Maven repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+
+      - name: Build Mule JAR
+        run: mvn clean package -DmuleDeploy
+
+      - name: Get project version
+        id: get_version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "$VERSION" > target/deployed_version.txt
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p packaged
+          cp target/*.jar packaged/app-${{ env.VERSION }}.jar
+          cp target/deployed_version.txt packaged/
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mule-app
+          path: packaged
+
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mule-app
+          path: artifact
+
+      - name: Deploy to Dev
+        run: |
+          mvn deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
+            -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
+            -Denv=Dev \
+            -Dappname=rollback-api \
+            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
+            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
+            -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
+
+      - name: Store Successful Dev Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-artifact
+          path: |
+            artifact/app-${{ needs.build.outputs.version }}.jar
+            artifact/deployed_version.txt
+
+  deploy-uat:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: uat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download current artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mule-app
+          path: artifact
+
+      - name: Download previous successful artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: uat-artifact
+          path: rollback
+        continue-on-error: true
+
+      - name: Read previous version
+        run: |
+          if [ -f rollback/deployed_version.txt ]; then
+            echo "PREVIOUS_VERSION=$(cat rollback/deployed_version.txt)" >> $GITHUB_ENV
+          else
+            echo "PREVIOUS_VERSION=0.0.0" >> $GITHUB_ENV
+          fi
+
+      - name: Try Deploy to UAT
+        id: deploy
+        continue-on-error: true
+        run: |
+          echo "Deploying version ${{ needs.build.outputs.version }} to UAT"
+          # Uncomment below to simulate failure
+          # exit 1
+          mvn deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
+            -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
+            -Denv=UAT \
+            -Dappname=rollback-api-uat \
+            -Danypoint.platform.client_id=b5b72434253f480c8405d9cb8d853fed  \
+            -Danypoint.platform.client_secret=d7d4Ff82Be8f49949661Ffd3ED535D46 \
+            -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
+
+      - name: Rollback to Previous UAT Version
+        if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
+        run: |
+          echo "Rolling back to UAT version $PREVIOUS_VERSION"
+          mvn deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
+            -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
+            -Denv=UAT \
+            -Dappname=rollback-api-uat \
+            -Danypoint.platform.client_id=b5b72434253f480c8405d9cb8d853fed  \
+            -Danypoint.platform.client_secret=d7d4Ff82Be8f49949661Ffd3ED535D46 \
+            -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
+
+      - name: Store Successful UAT Artifact
+        if: steps.deploy.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: uat-artifact
+          path: |
+            artifact/app-${{ needs.build.outputs.version }}.jar
+            artifact/deployed_version.txt
+
+  deploy-prod:
+    needs: deploy-uat
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download current artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mule-app
+          path: artifact
+
+      - name: Download previous successful artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prod-artifact
+          path: rollback
+        continue-on-error: true
+
+      - name: Read previous version
+        run: |
+          if [ -f rollback/deployed_version.txt ]; then
+            echo "PREVIOUS_VERSION=$(cat rollback/deployed_version.txt)" >> $GITHUB_ENV
+          else
+            echo "PREVIOUS_VERSION=0.0.0" >> $GITHUB_ENV
+          fi
+
+      - name: Try Deploy to Prod
+        id: deploy
+        continue-on-error: true
+        run: |
+          echo "Deploying version ${{ needs.build.outputs.version }} to Prod"
+          mvn deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
+            -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
+            -Denv=PROD \
+            -Dappname=rollback-api-prod \
+            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
+            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
+            -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
+
+      - name: Rollback to Previous Prod Version
+        if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
+        run: |
+          echo "Rolling back to Prod version $PREVIOUS_VERSION"
+          mvn deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
+            -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
+            -Denv=PROD \
+            -Dappname=rollback-api-prod \
+            -Danypoint.platform.client_id=777df98bcd084a75bfe4b973a9e53516  \
+            -Danypoint.platform.client_secret=AF10d59Ee8C64EFb85BCc8474b2aA7eD \
+            -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
+
+      - name: Store Successful Prod Artifact
+        if: steps.deploy.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-artifact
+          path: |
+            artifact/app-${{ needs.build.outputs.version }}.jar
+            artifact/deployed_version.txt
