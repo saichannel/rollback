@@ -90,6 +90,7 @@ jobs:
 
   deploy-uat:
     needs: deploy-dev
+    if: needs.deploy-dev.result == 'success'
     runs-on: ubuntu-latest
     environment: uat
     steps:
@@ -135,7 +136,7 @@ jobs:
             -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
 
       - name: Rollback to Previous UAT Version
-        if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
+        if: steps.deploy.outcome == 'failure'
         run: |
           echo "Rolling back to UAT version $PREVIOUS_VERSION"
           mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
@@ -159,6 +160,7 @@ jobs:
 
   deploy-prod:
     needs: deploy-uat
+    if: needs.deploy-uat.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -201,7 +203,7 @@ jobs:
             -Dapp.artifact=artifact/app-${{ needs.build.outputs.version }}.jar
 
       - name: Rollback to Previous Prod Version
-        if: steps.deploy.outcome == 'failure' && env.PREVIOUS_VERSION != '0.0.0'
+        if: steps.deploy.outcome == 'failure'
         run: |
           echo "Rolling back to Prod version $PREVIOUS_VERSION"
           mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
