@@ -2,7 +2,7 @@ name: Deploy MuleSoft Application Demo
 on:
   push:
     branches:
-      - mai
+      - main
  
 jobs:
   build:
@@ -126,7 +126,7 @@ jobs:
           # Uncomment below to simulate failure
           # exit 1
           mvn deploy --settings .settings/org.eclipse.core.resources.prefs -DskipMunitTests -DmuleDeploy \
-            -Danypoint.username=76f002fff9c041d78a663b0a26bc008f \
+            -Danypoint.username=76f002fff9c041d78a663b0a26bc008 \
             -Danypoint.password=a8055e977df843bCB9fFB5683E52A9BA \
             -Danypoint.businessGroup=a62f6236-0b02-4e5f-a8eb-dc5e37aedb12 \
             -Denv=UAT \
